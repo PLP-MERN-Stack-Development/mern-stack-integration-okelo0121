@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { postService } from '../services/api';
+import { useApi } from '../hooks/useApi';
 
 const CreateEditPostPage = () => {
   const { slug } = useParams();
@@ -9,20 +10,21 @@ const CreateEditPostPage = () => {
   const [content, setContent] = useState('');
   const isEditing = !!slug;
 
+  const { data: post, loading: fetchLoading, error: fetchError, request: fetchPost } = useApi(postService.getPost);
+  const { loading: submitLoading, error: submitError, request: submitPost } = useApi(isEditing ? postService.updatePost : postService.createPost);
+
   useEffect(() => {
     if (isEditing) {
-      const fetchPost = async () => {
-        try {
-          const data = await postService.getPost(slug);
-          setTitle(data.title);
-          setContent(data.content);
-        } catch (error) {
-          console.error('Error fetching post:', error);
-        }
-      };
-      fetchPost();
+      fetchPost(slug);
     }
-  }, [slug, isEditing]);
+  }, [slug, isEditing, fetchPost]);
+
+  useEffect(() => {
+    if (post) {
+      setTitle(post.title);
+      setContent(post.content);
+    }
+  }, [post]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -30,15 +32,23 @@ const CreateEditPostPage = () => {
 
     try {
       if (isEditing) {
-        await postService.updatePost(slug, postData);
+        await submitPost(post._id, postData);
       } else {
-        await postService.createPost(postData);
+        await submitPost(postData);
       }
       navigate('/posts');
     } catch (error) {
-      console.error('Error saving post:', error);
+      // Error is already handled by the useApi hook
     }
   };
+
+  if (fetchLoading) {
+    return <div>Loading...</div>;
+  }
+
+  if (fetchError) {
+    return <div>Error: {fetchError.message}</div>;
+  }
 
   return (
     <div>
@@ -59,7 +69,10 @@ const CreateEditPostPage = () => {
             onChange={(e) => setContent(e.target.value)}
           />
         </div>
-        <button type="submit">{isEditing ? 'Update' : 'Create'}</button>
+        <button type="submit" disabled={submitLoading}>
+          {submitLoading ? 'Saving...' : (isEditing ? 'Update' : 'Create')}
+        </button>
+        {submitError && <div>Error: {submitError.message}</div>}
       </form>
     </div>
   );

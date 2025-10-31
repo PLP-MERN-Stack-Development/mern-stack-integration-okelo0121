@@ -1,26 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { postService } from '../services/api';
+import { useApi } from '../hooks/useApi';
 
 const SinglePostPage = () => {
   const { slug } = useParams();
-  const [post, setPost] = useState(null);
+  const { data: post, error, loading, request: fetchPost } = useApi(postService.getPost);
 
   useEffect(() => {
-    const fetchPost = async () => {
-      try {
-        const data = await postService.getPost(slug);
-        setPost(data);
-      } catch (error) {
-        console.error('Error fetching post:', error);
-      }
-    };
+    fetchPost(slug);
+  }, [fetchPost, slug]);
 
-    fetchPost();
-  }, [slug]);
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (error) {
+    return <div>Error: {error.message}</div>;
+  }
 
   if (!post) {
-    return <div>Loading...</div>;
+    return <div>Post not found</div>;
   }
 
   return (
